@@ -1,8 +1,10 @@
 # litert_server -- the standalone local-Gemma microservice (see server.py).
 # Kept in its own requirements.txt (separate from orchestrator/requirements.txt)
-# because it needs the heavy litert_lm native runtime, which the main
+# because it needs the heavy litert-lm native runtime, which the main
 # orchestrator app must NOT depend on (see orchestrator/DESIGN.md §3.1).
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
-pydantic==2.9.2
+#
+# Python: 3.13 (tested on 3.13.7 -- see ../../.python-version).
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
 litert-lm==0.12.0

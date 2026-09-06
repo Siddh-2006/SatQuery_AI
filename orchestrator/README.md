@@ -31,8 +31,10 @@ split into these particular pieces.
 
 ## Running without Docker (local dev)
 
-You'll need Python 3.11+ and the four `BigEarthNet-*.zip` files at the
-repo root (already there if you cloned the whole project).
+**Verified working end-to-end** on Python 3.13.7 (each folder that needs
+Python has its own `.python-version` file recording this) with the four
+`BigEarthNet-*.zip` files at the repo root (already there if you cloned
+the whole project).
 
 **1. The orchestrator itself:**
 ```bash
@@ -41,6 +43,7 @@ python -m venv .venv && .venv\Scripts\activate   # Windows; use `source .venv/bi
 pip install -r requirements.txt
 copy .env.example .env                            # or `cp` on Linux/Mac — then edit paths to be local, not container paths
 set BIGEARTHNET_DATA_ROOT=..                       # PowerShell: $env:BIGEARTHNET_DATA_ROOT=".."
+set PATCH_FIXTURES_DIR=../ui/src/mocks/fixtures/real-patches
 python -m app.main
 ```
 It starts on http://localhost:8080.
@@ -53,23 +56,40 @@ set MODEL_PATH=../gemma_models/gemma-4-E2B-it.litertlm
 python server.py
 ```
 It starts on http://localhost:8090. (Skip this entirely if you set
-`LLM_BACKEND=gemini` and `GEMINI_API_KEY` instead.)
+`LLM_BACKEND=gemini` and `GEMINI_API_KEY` instead.) Loads fast even on
+CPU — the model bundle ships with pre-built XNNPACK cache files.
 
 **3. The EOCaptioner model server** (the one ready specialist tool):
 ```bash
 cd server
-pip install -r requirements.txt   # see that folder's own README/serve.py header
+pip install -r requirements.txt   # see note below before running this
 python serve.py --bundle offline_model --port 8000
 ```
+This is the slow-loading one — it's a real PyTorch model (TerraFM +
+projected LLM) loading ~338 weight tensors from `offline_model/`, which
+takes a minute or two on CPU (no GPU needed, just patience; `torch.cuda
+.is_available()` decides automatically if one's present).
+
+> **Already have `torch`/`transformers`/`rasterio` installed globally**
+> (e.g. from earlier training work in this repo)? Having the model
+> weights offline doesn't make the `torch` *library* optional — it's the
+> runtime that actually executes the model, regardless of where the
+> weights came from. But you don't need to re-download it: create the
+> venv with `python -m venv --system-site-packages .venv` instead of a
+> plain `venv`, and `pip install -r requirements.txt` will find everything
+> already satisfied globally instead of fetching gigabytes again. That's
+> exactly how this was set up and verified.
 
 **4. The UI:**
 ```bash
 cd ui
 npm install
+set VITE_API_BASE_URL=http://localhost:8080   # point it at the real orchestrator instead of the MSW mock
 npm run dev
 ```
-Point it at the real backend instead of the MSW mock — see
-`ui/src/main.tsx` for the one-line toggle `ui/DESIGN.md` describes.
+`VITE_API_BASE_URL` is read by `ui/src/api/client.ts`; unset it (or leave
+it out) to fall back to the MSW mock, which is still the default with no
+env var set.
 
 ## Folder map
 

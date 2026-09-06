@@ -1,9 +1,16 @@
-# orchestrator -- the main FastAPI + LangChain brain. Deliberately does NOT
-# depend on litert_lm (see litert_server/requirements.txt for that) -- this
+# orchestrator -- the main FastAPI + LangGraph brain. Deliberately does NOT
+# depend on litert-lm (see litert_server/requirements.txt for that) -- this
 # process only ever talks to the local Gemma model over HTTP.
+#
+# Python: 3.13 (tested on 3.13.7 -- see ../.python-version). Versions below
+# are pinned to what's actually verified working together (see
+# orchestrator/DESIGN.md §3.2's revision note) -- langgraph moves fast and
+# will reject/require specific langchain-core ranges, so don't bump one
+# without the other; re-run `pip install -r requirements.txt` and fix
+# whatever pip's resolver complains about, then update these pins to match.
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-pydantic==2.9.2
+pydantic==2.13.5
 python-multipart==0.0.17
 
 # LangChain / LangGraph ecosystem (DESIGN.md §3/§5). The agent loop is a
@@ -11,9 +18,9 @@ python-multipart==0.0.17
 # AgentExecutor -- so only langchain-core (messages, tool decorators/
 # rendering) and langgraph itself are needed, not the full `langchain`
 # package. langchain-google-genai is the Gemini chat model wrapper.
-langchain-core==0.3.23
-langgraph==0.2.60
-langchain-google-genai==2.0.7
+langchain-core==1.6.2
+langgraph==1.2.11
+langchain-google-genai==4.4.0
 
 # Imagery I/O (DESIGN.md §6) -- same libraries server/serve.py already uses.
 rasterio==1.4.2

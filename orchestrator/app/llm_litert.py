@@ -6,14 +6,12 @@ A LangChain `BaseChatModel` that talks to the small standalone
 instead of loading the local Gemma model in-process -- see
 `orchestrator/DESIGN.md` §3.1 for why that split exists.
 
-How this gets used with a ReAct agent (`app/prompts.py` /
-`app/llm_factory.py`): `create_react_agent` renders the ENTIRE prompt
-(mission + tools + question + scratchpad-so-far) as one big string each
-time it needs the next step, and LangChain auto-wraps a plain string into
-a single `HumanMessage` before calling a chat model. So `_generate` below
-only ever needs to look at that one message's text, no real multi-turn
-chat state to manage -- each call is a fresh, stateless completion, which
-matches how ReAct agents work with any plain completion-style model.
+How this gets used (`app/graph.py`'s `_litert_step`): the whole
+conversation-so-far (system prompt + question + prior Thought/Action/
+Observation turns) is rendered into ONE big string before ever reaching
+this class, so `_generate` below only ever needs to look at that one
+message's text -- no real multi-turn chat state to manage here, each call
+is a fresh, stateless completion.
 """
 import logging
 
@@ -24,6 +22,16 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 logger = logging.getLogger("orchestrator")
+
+
+class LiteRTServerUnavailable(RuntimeError):
+    """Raised when the local Gemma model server can't be reached or errors
+    out -- a genuine infrastructure failure, deliberately NOT swallowed
+    into a fake "ERROR: ..." answer string (an earlier version of this
+    file did that, which made a dead litert_server look like the model
+    legitimately answered with an error message -- misleading, and it hid
+    the failure from `api/query.py`'s error handling, which returns a
+    proper `model_error` 500 for exactly this kind of thing instead)."""
 
 
 class LiteRTGemmaChat(BaseChatModel):
@@ -46,10 +54,8 @@ class LiteRTGemmaChat(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs,
     ) -> ChatResult:
-        # The ReAct prompt template renders to one string, so there's
-        # normally exactly one message here; if more ever arrive (e.g.
-        # someone calls this model directly with real chat history), just
-        # use the most recent one -- this backend has no notion of
+        # Only one message is ever expected here (see module docstring);
+        # if more arrive, use the most recent one -- this backend has no
         # server-side conversation memory, everything must be in the text.
         prompt_text = messages[-1].content if messages else ""
 
@@ -63,14 +69,18 @@ class LiteRTGemmaChat(BaseChatModel):
             text = response.json()["text"]
         except requests.RequestException as e:
             logger.error("litert_server call failed: %s", e)
-            text = f"ERROR: local Gemma model server is unavailable ({e})"
+            raise LiteRTServerUnavailable(
+                f"Could not reach the local Gemma model server at {self.server_url} ({e}). "
+                "Is `litert_server/server.py` running? See orchestrator/README.md."
+            ) from e
 
         # litert_lm has no native "stop sequence" concept (see
         # gemma_models/inference.py -- it just streams text until the
-        # model itself stops), so ReAct's "\nObservation" stop sequence is
-        # enforced here by truncating the raw text ourselves -- otherwise
-        # the model would happily keep "hallucinating" its own fake
-        # Observation/Thought turns past where it should have stopped.
+        # model itself stops), so the JSON-blob format's implicit stop
+        # point is enforced here by truncating the raw text ourselves --
+        # otherwise the model would happily keep hallucinating its own
+        # fake Thought/Action/Observation turns past where it should have
+        # stopped.
         if stop:
             for s in stop:
                 idx = text.find(s)

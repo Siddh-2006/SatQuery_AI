@@ -1,0 +1,9 @@
+{
+  "_comment": "Single source of truth for scripts/package_weights.py and scripts/restore_weights.py. Paths are relative to the repo root. Add a new weight file here when the model pipeline grows, then re-run package_weights.py.",
+  "files": [
+    "orchestrator/gemma_models/gemma-4-E2B-it.litertlm",
+    "server/offline_model/llm/model.safetensors",
+    "server/offline_model/projector.pt",
+    "server/offline_model/terrafm.pth"
+  ]
+}
