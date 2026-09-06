@@ -1,0 +1,20 @@
+{
+  "_comment": "Placeholder capability spec -- this model has no working backend yet. Kept status='not_ready'.",
+  "tool_name": "query_segmentation",
+  "status": "not_ready",
+  "model_name": "SAM / MM-OVSeg (planned)",
+  "role": "on_demand_segmentation",
+  "description": "PLANNED: given a point/box, return a precise pixel mask. Not callable yet. Backs POST /api/segment directly (not an LLM-agent tool).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "point": {"type": "object", "description": "{lat, lon} -- matches ui/DESIGN.md SegmentRequest."},
+      "patch_id_hint": {"type": "string", "description": "Optional, matches SegmentRequest.patchIdHint."}
+    },
+    "required": ["point"]
+  },
+  "backend_url_env": "SEGMENTATION_URL",
+  "backend_endpoint": null,
+  "supported_context_types": ["single"],
+  "notes": "See SYSTEM_PROMPT.md."
+}

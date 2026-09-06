@@ -1,0 +1,80 @@
+# SatQuery AI — full-stack Docker Compose. See orchestrator/DESIGN.md §12
+# for the reasoning behind this split into independent services, and
+# orchestrator/README.md for usage examples.
+#
+# Quick start (local Gemma + local EOCaptioner, everything on one machine):
+#   cp orchestrator/.env.example .env
+#   docker compose --profile litert --profile eocaptioner up --build
+#
+# `llm-litert` and `eocaptioner` are behind profiles because they're the
+# two heavy, optional pieces — swap either for a remote instance by
+# pointing LITERT_SERVER_URL / EOCAPTIONER_URL (in .env) at it instead of
+# starting that profile here.
+
+services:
+  ui:
+    build:
+      context: ./ui
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "5173:80"
+    depends_on:
+      - orchestrator
+
+  orchestrator:
+    build: ./orchestrator
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Paths INSIDE this container — kept fixed here (not read from .env)
+      # since they must match the volume mounts below exactly.
+      - BIGEARTHNET_DATA_ROOT=/data/bigearthnet
+      - ORCHESTRATOR_CACHE_DIR=/data/patch_cache
+      - ORCHESTRATOR_DB_PATH=/data/orchestrator.db
+      - UPLOAD_STORE_DIR=/data/uploads
+      - REPORT_STORE_DIR=/data/reports
+      - PATCH_FIXTURES_DIR=/data/patch_fixtures
+    volumes:
+      - ./BigEarthNet-Kosovo-S1.zip:/data/bigearthnet/BigEarthNet-Kosovo-S1.zip:ro
+      - ./BigEarthNet-Kosovo-S2.zip:/data/bigearthnet/BigEarthNet-Kosovo-S2.zip:ro
+      - ./BigEarthNet-Luxembourg-S1.zip:/data/bigearthnet/BigEarthNet-Luxembourg-S1.zip:ro
+      - ./BigEarthNet-Luxembourg-S2.zip:/data/bigearthnet/BigEarthNet-Luxembourg-S2.zip:ro
+      - ./ui/src/mocks/fixtures/real-patches:/data/patch_fixtures:ro
+      - patch_cache:/data/patch_cache
+      - orchestrator_data:/data
+
+  # Local Gemma model server (orchestrator/DESIGN.md §3.1). Only started
+  # with `--profile litert` — the default LLM_BACKEND setting.
+  llm-litert:
+    profiles: ["litert"]
+    build: ./orchestrator/litert_server
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./orchestrator/gemma_models:/models:ro
+    environment:
+      - MODEL_PATH=/models/gemma-4-E2B-it.litertlm
+
+  # EOCaptioner — the one ready specialist model (orchestrator/DESIGN.md
+  # §4). Only started with `--profile eocaptioner`; omit it here and point
+  # EOCAPTIONER_URL (in .env) at a remote machine instead if this needs to
+  # run somewhere with a GPU.
+  eocaptioner:
+    profiles: ["eocaptioner"]
+    build: ./server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/offline_model:/app/offline_model:ro
+      # Same absolute path as the orchestrator's ORCHESTRATOR_CACHE_DIR
+      # above and the SAME named volume — this is what lets the
+      # orchestrator extract a patch's bands once and have this container
+      # read them from the identical path (see DESIGN.md §6).
+      - patch_cache:/data/patch_cache
+
+volumes:
+  patch_cache:
+  orchestrator_data:

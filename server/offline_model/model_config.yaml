@@ -1,0 +1,8 @@
+image_size: 224
+max_answer_tokens: 256
+qformer_depth: 2
+qformer_heads: 8
+qformer_num_queries: 32
+s2_product: l2a
+terrafm_variant: base
+use_s1: true

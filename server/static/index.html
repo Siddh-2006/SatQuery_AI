@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EOCaptioner — Offline Tester</title>
+<style>
+  /* Deliberately no external fonts/CDN/build step — this whole tool is one
+     file FastAPI serves as-is, matching serve.py's "no network calls at
+     runtime" design. */
+  :root {
+    --bg: #14161c;
+    --panel: #1b1e27;
+    --border: #2a2e3a;
+    --text: #e6e8ef;
+    --muted: #8b90a3;
+    --accent: #7c9eff;
+    --danger: #ff8080;
+    --ok: #6bd08a;
+    font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  #status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  #status-dot.ok { background: var(--ok); }
+  #status-dot.bad { background: var(--danger); }
+  #status-text { color: var(--muted); font-size: 11.5px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .panel h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
+
+  label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%;
+    background: #10121a;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    padding: 7px 9px;
+    font: inherit;
+  }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); }
+  textarea { resize: vertical; min-height: 70px; }
+  select[size] option { padding: 3px 2px; }
+  select[size] option:checked { background: var(--accent); color: #101223; }
+
+  details { border: 1px solid var(--border); border-radius: 5px; padding: 8px 9px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 11.5px; }
+  details .field-row { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+  .field { display: flex; flex-direction: column; }
+  .row { display: flex; gap: 8px; }
+  .row .field { flex: 1; }
+
+  button {
+    background: var(--accent);
+    color: #101223;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); font-weight: 500; }
+
+  #preview-box {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    background: #10121a;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-align: center;
+    padding: 8px;
+  }
+  #preview-box img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+
+  #answer-box {
+    min-height: 90px;
+    background: #10121a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  #answer-box.ready { color: var(--text); }
+  #answer-box.error { color: var(--danger); }
+
+  .hint { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <span id="status-dot"></span>
+  <h1>EOCaptioner — Offline Tester</h1>
+  <span id="status-text">checking model status…</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Image</h2>
+
+    <div class="field">
+      <label for="pair-region">Matching S1+S2 pair (from Kosovo/Luxembourg)</label>
+      <div class="row">
+        <select id="pair-region" style="flex: 0 0 130px;">
+          <option value="">All regions</option>
+        </select>
+        <input type="text" id="pair-filter" placeholder="filter — e.g. tile, row/col…" />
+      </div>
+      <select id="pair-select" size="6" style="margin-top: 6px;">
+        <option value="">— pick a location —</option>
+      </select>
+      <p id="pair-status" class="hint">Loading matching pairs…</p>
+    </div>
+
+    <p class="hint" style="text-align:center; color:var(--border);">— or enter paths manually —</p>
+
+    <div class="field">
+      <label for="s2-dir">S2 folder (contains &lt;patch_id&gt;_B02.tif, _B03.tif, _B04.tif, …)</label>
+      <input type="text" id="s2-dir" placeholder="D:/dataset/images/S2/S2A_..._00_41" />
+    </div>
+    <div class="field">
+      <label for="patch-id">Patch ID</label>
+      <input type="text" id="patch-id" placeholder="S2A_MSIL2A_20171208T093351_..._00_41" />
+    </div>
+
+    <details>
+      <summary>SAR (S1) — optional, used if the model was trained with it</summary>
+      <div class="field-row">
+        <div class="field">
+          <label for="s1-dir">S1 folder</label>
+          <input type="text" id="s1-dir" placeholder="D:/dataset/images/S1/S1A_..._0_41" />
+        </div>
+        <div class="field">
+          <label for="s1-patch-id">S1 patch ID</label>
+          <input type="text" id="s1-patch-id" placeholder="S1A_IW_GRDH_..._0_41" />
+        </div>
+      </div>
+    </details>
+
+    <button id="load-btn" type="button">Load preview</button>
+
+    <div id="preview-box">No image loaded yet</div>
+    <p class="hint">
+      Rendered from bands B04/B03/B02 (true color), normalized the same way the model's own
+      input is — this is what the model actually sees, not a separately brightened preview.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Ask</h2>
+
+    <div class="field">
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" placeholder="Describe the land cover and major objects visible in this image.">Describe the land cover and major objects visible in this image.</textarea>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="max-tokens">Max new tokens</label>
+        <input type="number" id="max-tokens" value="256" min="1" max="1024" />
+      </div>
+    </div>
+
+    <button id="ask-btn" type="button">Ask</button>
+
+    <div id="answer-box">Load an image and enter a prompt, then click Ask.</div>
+    <p class="hint">POST /generate · uses the same S2 (+ optional S1) fields as the image panel above.</p>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // --- Model status -----------------------------------------------------
+  fetch("/health")
+    .then((r) => r.json())
+    .then((data) => {
+      if (data.status === "ok") {
+        $("status-dot").className = "ok";
+        $("status-text").textContent = `model loaded on ${data.device}`;
+      } else {
+        $("status-dot").className = "bad";
+        $("status-text").textContent =
+          `model not loaded (${data.error || "unknown error"}) — image preview still works; Ask will 503 until this is fixed`;
+      }
+    })
+    .catch(() => {
+      $("status-dot").className = "bad";
+      $("status-text").textContent = "server not reachable — is serve.py running?";
+    });
+
+  // --- Matching S1+S2 pairs (GET /pairs, GET /pairs/resolve) ---------------
+  // Picking one fills in the manual fields below rather than bypassing them
+  // — so "how did this get populated" is always visible/editable, and
+  // /generate's request always comes from the same two fields either way.
+  let allPairs = [];
+  const MAX_LISTED = 300; // keep the <select> light even with 3,000+ pairs
+
+  function renderPairOptions() {
+    const region = $("pair-region").value;
+    const filter = $("pair-filter").value.trim().toLowerCase();
+    const matches = allPairs.filter((p) => {
+      if (region && p.region !== region) return false;
+      if (!filter) return true;
+      const haystack = `${p.region} ${p.tile} ${p.row} ${p.col} ${p.s2.patch_id} ${p.s1.patch_id}`.toLowerCase();
+      return haystack.includes(filter);
+    });
+
+    const select = $("pair-select");
+    select.innerHTML = "";
+    for (const p of matches.slice(0, MAX_LISTED)) {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = `${p.region} · tile ${p.tile} r${p.row}/c${p.col} · S2 ${p.s2.date} / S1 ${p.s1.date} (${p.day_gap}d apart)`;
+      select.appendChild(opt);
+    }
+
+    $("pair-status").textContent =
+      matches.length === 0
+        ? "No pairs match that filter."
+        : matches.length > MAX_LISTED
+          ? `${matches.length} matches — showing first ${MAX_LISTED}. Narrow the filter to see more.`
+          : `${matches.length} matching location(s).`;
+  }
+
+  fetch("/pairs")
+    .then((r) => r.json())
+    .then((pairs) => {
+      allPairs = pairs;
+      if (pairs.length === 0) {
+        $("pair-status").textContent = "No pairs indexed yet — run `python scripts/build_pair_index.py` and reload this page.";
+        return;
+      }
+      const regionSelect = $("pair-region");
+      for (const region of [...new Set(pairs.map((p) => p.region))].sort()) {
+        const opt = document.createElement("option");
+        opt.value = region;
+        opt.textContent = region;
+        regionSelect.appendChild(opt);
+      }
+      renderPairOptions();
+    })
+    .catch(() => {
+      $("pair-status").textContent = "Couldn't load the pair index — is serve.py running?";
+    });
+
+  $("pair-region").addEventListener("change", renderPairOptions);
+  $("pair-filter").addEventListener("input", renderPairOptions);
+
+  $("pair-select").addEventListener("change", async () => {
+    const id = $("pair-select").value;
+    if (!id) return;
+    $("pair-status").textContent = "Extracting this pair's bands (only needed the first time it's picked)…";
+    try {
+      const res = await fetch(`/pairs/resolve?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      $("s2-dir").value = data.s2_dir;
+      $("patch-id").value = data.patch_id;
+      $("s1-dir").value = data.s1_dir;
+      $("s1-patch-id").value = data.s1_patch_id;
+      $("pair-status").textContent = "Pair loaded below — click Load preview.";
+      loadPreview();
+    } catch (err) {
+      $("pair-status").textContent = `Couldn't resolve this pair: ${err.message}`;
+    }
+  });
+
+  // --- Load preview -------------------------------------------------------
+  function loadPreview() {
+    const s2Dir = $("s2-dir").value.trim();
+    const patchId = $("patch-id").value.trim();
+    const box = $("preview-box");
+    if (!s2Dir || !patchId) {
+      box.textContent = "Enter both the S2 folder and patch ID first.";
+      return;
+    }
+    box.textContent = "Loading…";
+    const url = `/preview?s2_dir=${encodeURIComponent(s2Dir)}&patch_id=${encodeURIComponent(patchId)}&t=${Date.now()}`;
+    const img = new Image();
+    img.onload = () => {
+      box.textContent = "";
+      box.appendChild(img);
+    };
+    img.onerror = () => {
+      box.textContent = "Couldn't render a preview — check the folder path and patch ID, and that the *_B04.tif / _B03.tif / _B02.tif files exist there.";
+    };
+    img.src = url;
+  }
+  $("load-btn").addEventListener("click", loadPreview);
+
+  // --- Ask ------------------------------------------------------------
+  $("ask-btn").addEventListener("click", async () => {
+    const s2Dir = $("s2-dir").value.trim();
+    const patchId = $("patch-id").value.trim();
+    const s1Dir = $("s1-dir").value.trim();
+    const s1PatchId = $("s1-patch-id").value.trim();
+    const prompt = $("prompt").value.trim();
+    const maxNewTokens = parseInt($("max-tokens").value, 10) || 256;
+    const answerBox = $("answer-box");
+    const askBtn = $("ask-btn");
+
+    if (!s2Dir || !patchId || !prompt) {
+      answerBox.className = "error";
+      answerBox.textContent = "Fill in the S2 folder, patch ID, and a prompt first.";
+      return;
+    }
+
+    askBtn.disabled = true;
+    answerBox.className = "";
+    answerBox.textContent = "Running inference — this can take a while on CPU…";
+
+    try {
+      const res = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          s2_dir: s2Dir,
+          patch_id: patchId,
+          prompt,
+          s1_dir: s1Dir || null,
+          s1_patch_id: s1PatchId || null,
+          max_new_tokens: maxNewTokens,
+        }),
+      });
+      if (!res.ok) {
+        // Failed before any streaming started (bad path, model not loaded, etc.)
+        // -- still plain JSON, per HTTPException's default error body.
+        const data = await res.json();
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+      // /generate streams the answer as plain text, one token at a time --
+      // render each piece as soon as it arrives instead of waiting for the
+      // response to finish.
+      answerBox.className = "ready";
+      answerBox.textContent = "";
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        answerBox.textContent += decoder.decode(value, { stream: true });
+      }
+    } catch (err) {
+      answerBox.className = "error";
+      answerBox.textContent = `Error: ${err.message}`;
+    } finally {
+      askBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>

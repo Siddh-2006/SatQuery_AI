@@ -1,0 +1,21 @@
+{
+  "_comment": "Placeholder capability spec -- this model has no working backend yet. Kept status='not_ready' so orchestrator/tools/registry.py never binds it to the LLM agent.",
+  "tool_name": "query_cross_modal_fusion",
+  "status": "not_ready",
+  "model_name": "TerraFM gated cross-attention fusion (planned)",
+  "role": "optical_sar_fusion",
+  "description": "PLANNED: joint optical+SAR reasoning over a co-registered pair. Not callable yet.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "optical_patch_id": {"type": "string", "description": "TBD once model is ready."},
+      "sar_patch_id": {"type": "string", "description": "TBD once model is ready."},
+      "instruction": {"type": "string", "description": "TBD once model is ready."}
+    },
+    "required": []
+  },
+  "backend_url_env": "CROSS_MODAL_FUSION_URL",
+  "backend_endpoint": null,
+  "supported_context_types": ["cross_modal_pair"],
+  "notes": "See SYSTEM_PROMPT.md."
+}

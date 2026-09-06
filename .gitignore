@@ -1,0 +1,43 @@
+# --- Orchestrator runtime data (orchestrator/DESIGN.md §10) ---
+orchestrator/data_store/*.db
+orchestrator/data_store/uploads/*
+orchestrator/data_store/reports/*
+orchestrator/data_store/patch_cache/*
+!orchestrator/data_store/**/.gitkeep
+orchestrator/.env
+.env
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# --- Node / UI ---
+ui/node_modules/
+ui/dist/
+
+# --- Model weights & large datasets (already on disk, not meant for git) ---
+orchestrator/gemma_models/*.litertlm
+orchestrator/gemma_models/*.litertlm.*
+server/offline_model/*.pth
+server/offline_model/*.pt
+server/offline_model/llm/model.safetensors
+server/.cache/
+*.zip
+*.pt
+
+# --- OS/editor cruft ---
+.DS_Store
+Thumbs.db
+
+# notebooks and extracted big zip folders
+*.ipynb
+BigEarthNet-Kosovo-S1/*
+BigEarthNet-Kosovo-S2/*
+BigEarthNet-Luxembourg-S1/*
+BigEarthNet-Luxembourg-S2/*
+specialized_training/*
+dataset.py
+
+

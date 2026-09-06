@@ -1,0 +1,21 @@
+{
+  "_comment": "Placeholder capability spec -- this model has no working backend yet. Kept status='not_ready' so orchestrator/tools/registry.py never binds it to the LLM agent. Update this file (and SYSTEM_PROMPT.md) once the model is ready, then flip status to 'ready'.",
+  "tool_name": "query_change_detection",
+  "status": "not_ready",
+  "model_name": "ChangeChat / DeltaVLM (planned)",
+  "role": "change_understanding",
+  "description": "PLANNED: change description / change-VQA over a bi-temporal image pair. Not callable yet.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "patch_id_t1": {"type": "string", "description": "TBD once model is ready."},
+      "patch_id_t2": {"type": "string", "description": "TBD once model is ready."},
+      "instruction": {"type": "string", "description": "TBD once model is ready."}
+    },
+    "required": []
+  },
+  "backend_url_env": "CHANGE_DETECTION_URL",
+  "backend_endpoint": null,
+  "supported_context_types": ["bitemporal_pair"],
+  "notes": "See SYSTEM_PROMPT.md. arXiv references: DeltaVLM (2025), TCSSM (arXiv:2508.08974, 2025)."
+}

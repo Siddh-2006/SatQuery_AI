@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+
+# MSW copies its service worker file here on `npx msw init` — it's
+# generated, not hand-written, but we commit it (see README) so a fresh
+# `npm install` + `npm run dev` works without an extra manual step.
+!public/mockServiceWorker.js

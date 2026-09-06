@@ -1,0 +1,4 @@
+# Dependencies for scripts/extract_patches.py — not part of the frontend
+# app itself. Install with: pip install -r scripts/requirements.txt
+rasterio
+pyproj

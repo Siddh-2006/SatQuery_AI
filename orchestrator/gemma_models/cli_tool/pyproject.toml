@@ -1,0 +1,15 @@
+[project]
+name = "cmd-cli"
+version = "1.0.0"
+description = "CLI for llm"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+cmd-cli = "cmd_cli.cmd_cli:cli"
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"

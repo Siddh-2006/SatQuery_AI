@@ -1,0 +1,15 @@
+# server/serve.py -- the EOCaptioner offline model server. This file didn't
+# exist before (the script was run ad hoc); added so it can be containerized
+# (see Dockerfile) and so a fresh machine can set it up in one `pip install`.
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.9.2
+numpy==2.1.3
+rasterio==1.4.2
+Pillow==11.0.0
+PyYAML==6.0.2
+transformers==4.46.3
+# CPU by default -- swap for a CUDA-matched build (see
+# https://pytorch.org/get-started/locally/) if you have a GPU available;
+# serve.py already auto-detects and uses cuda when torch reports it.
+torch==2.5.1

@@ -1,0 +1,29 @@
+{
+  "_comment": "Machine-readable capability spec for the EOCaptioner tool. Read by orchestrator/tools/registry.py. See ../README.md for what each field means.",
+  "tool_name": "query_eocaptioner",
+  "status": "ready",
+  "model_name": "EOCaptioner (TerraFM vision encoder + projected LLM)",
+  "role": "vqa_captioning_grounding",
+  "description": "Sends one correctly-templated instruction to the fine-tuned EOCaptioner model for a given satellite patch and returns its raw text answer. Only understands 4 template shapes: free-text captioning, yes/no binary questions, lettered MCQ, and point/ref-anchored bounding box requests. See SYSTEM_PROMPT.md for the exact phrasing rules.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "patch_id": {
+        "type": "string",
+        "description": "The satellite patch identifier (e.g. 'KOS-34TEN-000-041'). Must be one of the patch_id values given to you in this turn's context."
+      },
+      "instruction": {
+        "type": "string",
+        "description": "Instruction phrased in one of the 4 required template shapes documented in SYSTEM_PROMPT.md."
+      }
+    },
+    "required": ["patch_id", "instruction"]
+  },
+  "backend_url_env": "EOCAPTIONER_URL",
+  "backend_endpoint": "POST /generate",
+  "supported_context_types": ["single"],
+  "supported_band_selections": ["default_rgb", "full_bands"],
+  "unsupported_band_selections": ["sar_only"],
+  "unsupported_band_selections_reason": "The offline EOCaptioner bundle (server/serve.py OfflineEOCaptioner) always requires an optical (S2) tensor -- SAR is only ever additive alongside it, never a standalone input.",
+  "notes": "Only 'single' context sets are supported by this tool today. bitemporal_pair and cross_modal_pair need change-detection / fusion models that are not built yet -- see the other subfolders in system_prompts/."
+}
