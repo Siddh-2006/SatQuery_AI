@@ -203,12 +203,63 @@ def _zip_index() -> dict[str, dict[str, dict[tuple[str, int, int], list[ZipMembe
         index[region] = {}
         for modality, filename in (("s2", zips["s2"]), ("s1", zips["s1"])):
             zip_path = settings.bigearthnet_data_root / filename
-            if not zip_path.exists():
+            # is_file(), not exists(): a Docker bind mount of a source path
+            # that doesn't exist on the host silently creates an empty
+            # DIRECTORY at the mount point instead of erroring -- exists()
+            # would be True for that directory, then zipfile.ZipFile()
+            # below would blow up with a confusing IsADirectoryError. Treat
+            # "not a real file" the same as "missing" either way.
+            if not zip_path.is_file():
                 index[region][modality] = {}
                 continue
             pattern = _S2_RE if modality == "s2" else _S1_RE
             index[region][modality] = _scan_zip(zip_path, pattern)
     return index
+
+
+def diagnose_data_root() -> list[str]:
+    """Human-readable lines describing exactly what was found/missing for
+    every BigEarthNet zip this process expects, plus the patch fixture
+    JSONs -- logged once at startup (`app/main.py`) so a wrong
+    `BIGEARTHNET_DATA_ROOT`/`PATCH_FIXTURES_DIR` (the #1 cause of "patch
+    previews don't load for my teammate") is obvious immediately instead
+    of discovered one broken click at a time. Also driven by `GET /health`
+    so it can be checked remotely without terminal access."""
+    lines = [f"BIGEARTHNET_DATA_ROOT = {settings.bigearthnet_data_root.resolve()}"]
+    for region, zips in REGION_ZIPS.items():
+        for filename in (zips["s2"], zips["s1"]):
+            path = settings.bigearthnet_data_root / filename
+            if path.is_file():
+                size_mb = path.stat().st_size / (1024 * 1024)
+                lines.append(f"  [ok]      {filename} ({size_mb:.0f} MB)")
+            elif path.is_dir():
+                lines.append(f"  [MISSING] {filename} -- a DIRECTORY exists at this path, not the zip file "
+                              f"(classic Docker bind-mount symptom: the source file didn't exist when the "
+                              f"container started)")
+            else:
+                lines.append(f"  [MISSING] {filename} -- not found at {path.resolve()}")
+
+    lines.append(f"PATCH_FIXTURES_DIR = {settings.patch_fixtures_dir.resolve()}")
+    for filename in ("kosovo.json", "luxembourg.json", "regions.json"):
+        path = settings.patch_fixtures_dir / filename
+        lines.append(f"  [ok]      {filename}" if path.is_file() else f"  [MISSING] {filename} -- not found at {path.resolve()}")
+
+    return lines
+
+
+def data_root_status() -> dict:
+    """Machine-readable version of diagnose_data_root(), for GET /health --
+    {"zipsFound": N, "zipsExpected": 4, "fixturesFound": N, "fixturesExpected": 3}."""
+    zips_found = sum(
+        (settings.bigearthnet_data_root / filename).is_file()
+        for zips in REGION_ZIPS.values()
+        for filename in (zips["s2"], zips["s1"])
+    )
+    fixtures_found = sum(
+        (settings.patch_fixtures_dir / filename).is_file()
+        for filename in ("kosovo.json", "luxembourg.json", "regions.json")
+    )
+    return {"zipsFound": zips_found, "zipsExpected": 4, "fixturesFound": fixtures_found, "fixturesExpected": 3}
 
 
 def _latest_ref(refs: list[ZipMemberRef]) -> ZipMemberRef:

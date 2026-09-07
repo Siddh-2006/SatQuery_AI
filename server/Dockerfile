@@ -23,7 +23,14 @@ COPY static ./static
 # docker-compose.yml), so this image builds fast and updating weights
 # never requires a rebuild.
 
+# EOCAPTIONER_PORT is normally set by docker-compose (from .env's port
+# map, see ../orchestrator/.env.example) -- this default only matters
+# standalone. Deliberately not passed as a `--port` CLI arg in CMD below:
+# serve.py's own argparse default already reads this env var (see its
+# `if __name__ == "__main__"` block), so leaving --port off here means one
+# env var controls the port instead of two things needing to agree.
 ENV MODEL_BUNDLE_DIR=/app/offline_model
+ENV EOCAPTIONER_PORT=8000
 EXPOSE 8000
 
-CMD ["python", "serve.py", "--bundle", "/app/offline_model", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "serve.py", "--bundle", "/app/offline_model", "--host", "0.0.0.0"]

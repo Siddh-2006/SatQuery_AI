@@ -21,8 +21,10 @@ COPY server.py .
 
 # MODEL_PATH is overridden by docker-compose.yml to point at the mounted
 # model volume; the default here only matters for a bare `docker run`.
+# LITERT_SERVER_PORT is also normally set by docker-compose (from .env's
+# port map, see ../.env.example) -- this default only matters standalone.
 ENV MODEL_PATH=/models/gemma-4-E2B-it.litertlm
-ENV PORT=8090
-EXPOSE 8090
+ENV LITERT_SERVER_PORT=9001
+EXPOSE 9001
 
 CMD ["python", "server.py"]

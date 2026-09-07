@@ -38,8 +38,18 @@ def _env_path(name: str, default: Path) -> Path:
 @dataclass(frozen=True)
 class Settings:
     # -- LLM backend switch (DESIGN.md §3) -----------------------------
+    # NOTE on ports: this orchestrator process only ever knows the OTHER
+    # services (litert_server, eocaptioner) by full URL, never by "just a
+    # port" -- the host differs between local dev (localhost) and Docker
+    # (a service name), so a full URL is the only thing that's valid in
+    # both. Each of those services controls its OWN listen port via its
+    # own distinctly-named env var (LITERT_SERVER_PORT, EOCAPTIONER_PORT --
+    # see litert_server/server.py / server/serve.py). If you change one of
+    # those, update the matching *_URL below to the same port, or the
+    # orchestrator won't be able to reach it. See orchestrator/.env.example
+    # for the full port map, kept in one place for exactly this reason.
     llm_backend: str = field(default_factory=lambda: _env("LLM_BACKEND", "litert"))
-    litert_server_url: str = field(default_factory=lambda: _env("LITERT_SERVER_URL", "http://localhost:8090"))
+    litert_server_url: str = field(default_factory=lambda: _env("LITERT_SERVER_URL", "http://localhost:9001"))
     gemini_api_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY", ""))
     gemini_model: str = field(default_factory=lambda: _env("GEMINI_MODEL", "gemini-2.5-flash"))
 

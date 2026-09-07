@@ -3,7 +3,30 @@
 The agentic backend behind SatQuery AI. Read
 [`DESIGN.md`](DESIGN.md) first — this README is just "how do I run it."
 
-## Running everything with Docker Compose (recommended)
+## Fastest path: one script, no Docker
+
+```bash
+./scripts/run_pipeline.sh              # everything, local Gemma backend
+./scripts/run_pipeline.sh --gemini      # use Gemini instead (needs GEMINI_API_KEY in .env)
+./scripts/run_pipeline.sh --no-ui       # skip the UI dev server
+./scripts/run_pipeline.sh --no-eocaptioner  # skip EOCaptioner (e.g. it runs on another machine)
+```
+Creates each service's venv on first run (reusing an already-installed global
+`torch`/etc. where possible, per §"Already have torch..." below), starts
+litert_server → EOCaptioner → orchestrator → UI **in that order, waiting for
+each to be healthy before starting the next** (see the script's own comments
+for why — starting them all at once was observed to exhaust memory and
+segfault a service on an 8GB machine). Logs land in `logs/`, and Ctrl+C stops
+everything cleanly.
+
+> **RAM note:** the local Gemma model (~2.5GB resident) and EOCaptioner
+> (TerraFM + LLM, several more GB) running at the same time need real
+> headroom. On an 8GB machine this genuinely isn't enough and one will crash
+> (a native segfault, not a catchable error) — use `--gemini` (frees the
+> ~2.5GB local model) or `--no-eocaptioner` (point `EOCAPTIONER_URL` in
+> `.env` at a separate machine) if you hit this.
+
+## Running everything with Docker Compose
 
 From the repo root (`sih_model/`):
 
