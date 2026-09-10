@@ -23,6 +23,16 @@ heavy as the model itself.
 Run:
     cd orchestrator/litert_server
     MODEL_PATH=../gemma_models/gemma-4-E2B-it.litertlm python server.py
+
+Listens on `LITERT_SERVER_PORT` (default 9001) -- see
+`orchestrator/.env.example`'s "port map" section for how this and the
+orchestrator's `LITERT_SERVER_URL` (which must point at whatever port this
+is actually listening on) relate. Deliberately named `LITERT_SERVER_PORT`
+rather than a generic `PORT` -- this file, `server/serve.py`, and the main
+orchestrator app are three independent processes that could all end up
+reading the same shared `.env` (e.g. if you `source` one root `.env` in
+every terminal for convenience); a generic `PORT` name would collide
+between them.
 """
 import os
 import threading
@@ -89,4 +99,4 @@ def chat(req: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8090")))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("LITERT_SERVER_PORT", "9001")))

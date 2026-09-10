@@ -16,7 +16,7 @@ services:
     build:
       context: ./ui
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${ORCHESTRATOR_PORT:-8080}}
     ports:
       - "5173:80"
     depends_on:
@@ -25,7 +25,7 @@ services:
   orchestrator:
     build: ./orchestrator
     ports:
-      - "8080:8080"
+      - "${ORCHESTRATOR_PORT:-8080}:${ORCHESTRATOR_PORT:-8080}"
     env_file:
       - .env
     environment:
@@ -47,26 +47,32 @@ services:
       - orchestrator_data:/data
 
   # Local Gemma model server (orchestrator/DESIGN.md §3.1). Only started
-  # with `--profile litert` — the default LLM_BACKEND setting.
+  # with `--profile litert` — the default LLM_BACKEND setting. Port is
+  # LITERT_SERVER_PORT (.env's "port map" section) both inside the
+  # container and on the host here, so it stays consistent with how
+  # LITERT_SERVER_URL (also in .env) addresses it.
   llm-litert:
     profiles: ["litert"]
     build: ./orchestrator/litert_server
     ports:
-      - "8090:8090"
+      - "${LITERT_SERVER_PORT:-9001}:${LITERT_SERVER_PORT:-9001}"
     volumes:
       - ./orchestrator/gemma_models:/models:ro
     environment:
       - MODEL_PATH=/models/gemma-4-E2B-it.litertlm
+      - LITERT_SERVER_PORT=${LITERT_SERVER_PORT:-9001}
 
   # EOCaptioner — the one ready specialist model (orchestrator/DESIGN.md
   # §4). Only started with `--profile eocaptioner`; omit it here and point
   # EOCAPTIONER_URL (in .env) at a remote machine instead if this needs to
-  # run somewhere with a GPU.
+  # run somewhere with a GPU. Port is EOCAPTIONER_PORT, same idea as above.
   eocaptioner:
     profiles: ["eocaptioner"]
     build: ./server
     ports:
-      - "8000:8000"
+      - "${EOCAPTIONER_PORT:-8000}:${EOCAPTIONER_PORT:-8000}"
+    environment:
+      - EOCAPTIONER_PORT=${EOCAPTIONER_PORT:-8000}
     volumes:
       - ./server/offline_model:/app/offline_model:ro
       # Same absolute path as the orchestrator's ORCHESTRATOR_CACHE_DIR

@@ -7,6 +7,11 @@ the training repo's `src/` package; it's a standalone deployable script.
 Run:
     python serve.py --bundle offline_model --port 8000
 
+`--port` defaults to the `EOCAPTIONER_PORT` env var (falling back to 8000
+if unset) -- see orchestrator/.env.example's "port map" section for how
+this and the orchestrator's `EOCAPTIONER_URL` (which must point at
+whatever port this is actually listening on) relate.
+
 Then open http://localhost:8000/ in a browser for a small built-in tester
 UI (static/index.html) -- point it at a folder of `<patch_id>_B0x.tif`
 files, it renders a true-color preview (GET /preview) and lets you send a
@@ -457,7 +462,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", default="offline_model")
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=int(os.environ.get("EOCAPTIONER_PORT", "8000")))
     args = parser.parse_args()
 
     BUNDLE_DIR = args.bundle
