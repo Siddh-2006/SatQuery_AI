@@ -23,6 +23,8 @@ braces and all).
 from langchain_core.tools import BaseTool
 from langchain_core.tools.render import render_text_description_and_args
 
+from app.config import settings
+from app.demo_placeholders import GENERIC_KEY, placeholder_answer
 from data.patch_index import ResolvedPatch, get_patch
 from tools.registry import get_ready_tool_infos
 
@@ -45,6 +47,32 @@ output (e.g. a bare "c" or normalized coordinates) into plain language, the \
 way the examples in the tool's own instructions below show.
 """
 
+# Appended to the mission blurb when DEMO_PLACEHOLDERS is on.
+#
+# This covers the case app/graph.py's placeholder_answer node CANNOT: a
+# context set that passes the compatibility check (a single patch, say) but
+# a question that the one ready tool fundamentally can't answer -- "what
+# changed here since last year", "segment the lake". The pre-flight check
+# has no idea what the question says; only the agent does.
+#
+# The exact text is pinned rather than described ("explain that it isn't
+# available") so the demo gets the same words on this path as on the
+# short-circuit one, instead of a fresh improvisation per run.
+_DEMO_PLACEHOLDER_RULE = """\
+This build is running in DEMO mode. Some specialist models are not integrated \
+yet: change detection over time, joint optical+SAR fusion, and pixel-precise \
+segmentation. If the user asks for one of those -- or for anything else no \
+tool listed below can do -- do NOT attempt it with the tools you have, and do \
+NOT invent an answer. Reply with exactly this text as your final answer, \
+word for word, and nothing else:
+
+{placeholder_text}
+"""
+
+
+def _demo_placeholder_rule() -> str:
+    return _DEMO_PLACEHOLDER_RULE.format(placeholder_text=placeholder_answer(GENERIC_KEY))
+
 
 def _patch_context_blurb(resolved_patches: dict[str, ResolvedPatch]) -> str:
     """Describes exactly which patch_id(s) are available this turn and what
@@ -64,7 +92,10 @@ def _patch_context_blurb(resolved_patches: dict[str, ResolvedPatch]) -> str:
 def build_system_preamble(resolved_patches: dict[str, ResolvedPatch]) -> str:
     """Used directly as the Gemini backend's system message -- native tool
     calling means no extra "how to format a tool call" text is needed."""
-    sections = [_MISSION_BLURB, _patch_context_blurb(resolved_patches)]
+    sections = [_MISSION_BLURB]
+    if settings.demo_placeholders:
+        sections.append(_demo_placeholder_rule())
+    sections.append(_patch_context_blurb(resolved_patches))
     for info in get_ready_tool_infos():
         prompt_path = info.system_prompt_dir / "SYSTEM_PROMPT.md"
         if prompt_path.exists():

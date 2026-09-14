@@ -96,6 +96,18 @@ def get_ready_tool_infos() -> list[ToolInfo]:
     return [info for info in _load_all_tool_infos() if info.status == "ready" and info.tool_name in _REGISTERED]
 
 
+def get_tool_info_by_name(tool_name: str) -> ToolInfo | None:
+    """Metadata for ONE tool by name, ready or not. Unlike every other
+    lookup here this deliberately ignores `status`/`_REGISTERED`: its
+    caller is `app/demo_placeholders.py`, which needs to name the model a
+    placeholder is standing in for -- and that model is by definition the
+    not-ready one."""
+    for info in _load_all_tool_infos():
+        if info.tool_name == tool_name:
+            return info
+    return None
+
+
 def is_task_supported(context_type: str) -> bool:
     """Quick pre-flight check `app/compatibility.py` uses BEFORE spending an
     LLM call: is there at least one ready tool whose capabilities.json says

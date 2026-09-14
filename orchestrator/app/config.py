@@ -35,6 +35,13 @@ def _env_path(name: str, default: Path) -> Path:
     return Path(raw) if raw else default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     # -- LLM backend switch (DESIGN.md §3) -----------------------------
@@ -91,6 +98,19 @@ class Settings:
     )
     orchestrator_port: int = field(default_factory=lambda: int(_env("ORCHESTRATOR_PORT", "8080")))
     log_level: str = field(default_factory=lambda: _env("LOG_LEVEL", "INFO"))
+
+    # -- Demo mode (this branch) -------------------------------------------
+    # When true, a request that needs a not-yet-integrated specialist model
+    # gets a fixed stand-in answer from app/demo_placeholders.py instead of
+    # the honest 422 rejection, so every path through the UI can be walked
+    # end-to-end in a demo. Every such answer says in its first line that it
+    # is a placeholder, and marks itself in executionTrace.parameters.
+    #
+    # Defaults to TRUE here because this is the demo branch and a demo
+    # should need no env setup to work. Set DEMO_PLACEHOLDERS=false to get
+    # production behaviour back (real errors for unsupported requests) --
+    # and that is what main should run with.
+    demo_placeholders: bool = field(default_factory=lambda: _env_bool("DEMO_PLACEHOLDERS", True))
 
     # -- Answer shaping (DESIGN.md §5 step 5 / §13) ------------------------
     # EOCaptioner doesn't emit a calibrated confidence score today. This is

@@ -19,6 +19,26 @@ from tools.registry import is_task_supported
 def check_query_compatible(context_set: dict) -> Optional[dict]:
     """Returns None if the request can proceed, or an `ApiErrorBody` dict
     to return immediately (as a non-2xx response) otherwise."""
+    rejection = _find_rejection(context_set)
+    return rejection[0] if rejection else None
+
+
+def demo_placeholder_key(context_set: dict) -> Optional[str]:
+    """Which `app/demo_placeholders.py` entry stands in for this request,
+    or None if it isn't rejected at all.
+
+    Derived from the SAME `_find_rejection` pass as the error above, so a
+    rejection can never exist without the placeholder that covers it (or
+    vice versa) -- the failure mode a demo build least wants is a request
+    that's blocked in production and silently unhandled here."""
+    rejection = _find_rejection(context_set)
+    return rejection[1] if rejection else None
+
+
+def _find_rejection(context_set: dict) -> Optional[tuple[dict, str]]:
+    """The single implementation behind both functions above: returns
+    `(ApiErrorBody, placeholder_key)` for the first problem found, or None
+    if the request is fine."""
     context_type = context_set["type"]
     items = context_set["items"]
 
@@ -26,31 +46,40 @@ def check_query_compatible(context_set: dict) -> Optional[dict]:
     # (bitemporal_pair / cross_modal_pair -> no change-detection or fusion
     # model exists yet; see DESIGN.md §4/§13.)
     if not is_task_supported(context_type):
-        return _error(
-            "unsupported_task",
-            f"No specialist model is available yet for '{context_type}' queries. "
-            "Only single-image analysis (VQA, captioning, grounding) is supported in this build.",
-            {"contextType": context_type},
+        return (
+            _error(
+                "unsupported_task",
+                f"No specialist model is available yet for '{context_type}' queries. "
+                "Only single-image analysis (VQA, captioning, grounding) is supported in this build.",
+                {"contextType": context_type},
+            ),
+            context_type,  # "bitemporal_pair" / "cross_modal_pair" are placeholder keys as-is
         )
 
     # -- Per-item checks (only relevant for "single", which is the only
     # type that passes the check above today) --------------------------
     for item in items:
         if item["kind"] == "uploaded_image":
-            return _error(
-                "incompatible_context",
-                "Querying an uploaded image isn't supported yet -- the current model only understands "
-                "patches from the indexed BigEarthNet dataset. You can still add the upload to context "
-                "and inspect its preview, just not ask questions about it yet.",
-                {"fileId": item.get("fileId")},
+            return (
+                _error(
+                    "incompatible_context",
+                    "Querying an uploaded image isn't supported yet -- the current model only understands "
+                    "patches from the indexed BigEarthNet dataset. You can still add the upload to context "
+                    "and inspect its preview, just not ask questions about it yet.",
+                    {"fileId": item.get("fileId")},
+                ),
+                "uploaded_image",
             )
         if item["kind"] == "patch" and item.get("bandSelection") == "sar_only":
-            return _error(
-                "incompatible_context",
-                "SAR-only queries aren't supported by the current EOCaptioner model -- it always needs "
-                "the optical (S2) bands present, SAR can only be added alongside them. "
-                "Try 'Add full S1+S2 bands' or 'Add (default RGB)' instead.",
-                {"patchId": item.get("patchId"), "bandSelection": "sar_only"},
+            return (
+                _error(
+                    "incompatible_context",
+                    "SAR-only queries aren't supported by the current EOCaptioner model -- it always needs "
+                    "the optical (S2) bands present, SAR can only be added alongside them. "
+                    "Try 'Add full S1+S2 bands' or 'Add (default RGB)' instead.",
+                    {"patchId": item.get("patchId"), "bandSelection": "sar_only"},
+                ),
+                "sar_only",
             )
 
     return None

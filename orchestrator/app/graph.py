@@ -23,6 +23,10 @@ earlier `langchain.agents.AgentExecutor` version, in short:
 Graph shape:
 
     check_compatibility --(rejected)--> reject --> END
+           |         |
+           |         +(rejected, but DEMO_PLACEHOLDERS=true)
+           |         v
+           |    placeholder_answer --> END
            |(ok)
            v
     resolve_patches --(failed)--> reject --> END
@@ -60,8 +64,9 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
 from app import progress
-from app.compatibility import check_query_compatible, wants_sar
+from app.compatibility import check_query_compatible, demo_placeholder_key, wants_sar
 from app.config import settings
+from app.demo_placeholders import placeholder_answer
 from app.llm_gemini import build_gemini_chat_model
 from app.llm_litert import LiteRTGemmaChat
 from app.prompts import build_litert_system_message, build_system_preamble
@@ -96,6 +101,9 @@ class OrchestratorState(TypedDict):
     step_count: int
     malformed_retries: int
     error: dict | None  # ApiErrorBody, set by check_compatibility/resolve_patches on rejection
+    # Set instead of `error` when demo mode turns a rejection into a fixed
+    # stand-in answer -- names which app/demo_placeholders.py entry to use.
+    placeholder_key: str | None
     final_answer: str | None
 
 
@@ -105,6 +113,14 @@ class OrchestratorState(TypedDict):
 def node_check_compatibility(state: OrchestratorState) -> dict:
     progress.report(state["session_id"], "check_compatibility", "checking whether this context/task is supported")
     error = check_query_compatible(state["context_set"])
+    if error and settings.demo_placeholders:
+        # Demo mode: don't reject -- route to the fixed stand-in answer for
+        # whichever missing model this needed (app/demo_placeholders.py).
+        # The rejection reason is still narrated to the progress feed, so the
+        # terminal/activity log keeps showing WHY this isn't a real answer.
+        key = demo_placeholder_key(state["context_set"])
+        progress.report(state["session_id"], "placeholder", f"no model for this yet ({key}) -- using demo placeholder")
+        return {"error": None, "placeholder_key": key}
     return {"error": error}
 
 
@@ -293,6 +309,19 @@ def node_compose_answer(state: OrchestratorState) -> dict:
     return {"final_answer": answer}
 
 
+def node_placeholder_answer(state: OrchestratorState) -> dict:
+    """Demo mode's short-circuit: hand back the fixed text for the missing
+    model and stop.
+
+    No LLM call and no tool call on this path, deliberately. The answer is
+    a constant, so involving the model could only make it slower and less
+    predictable -- and a demo wants the same words, instantly, every time
+    rather than a 2.5GB local Gemma's fresh paraphrase of them."""
+    key = state.get("placeholder_key") or "generic"
+    progress.report(state["session_id"], "compose_answer", "fixed placeholder (no model was run)")
+    return {"final_answer": placeholder_answer(key)}
+
+
 def node_reject(state: OrchestratorState) -> dict:
     return {}
 
@@ -301,7 +330,11 @@ def node_reject(state: OrchestratorState) -> dict:
 # Edges
 # ---------------------------------------------------------------------------
 def route_after_compatibility(state: OrchestratorState) -> str:
-    return "reject" if state["error"] else "resolve_patches"
+    if state["error"]:
+        return "reject"
+    if state.get("placeholder_key"):
+        return "placeholder_answer"
+    return "resolve_patches"
 
 
 def route_after_resolve(state: OrchestratorState) -> str:
@@ -326,11 +359,18 @@ def build_graph():
     graph.add_node("execute_tools", node_execute_tools)
     graph.add_node("validate_observation", node_validate_observation)
     graph.add_node("compose_answer", node_compose_answer)
+    graph.add_node("placeholder_answer", node_placeholder_answer)
     graph.add_node("reject", node_reject)
 
     graph.set_entry_point("check_compatibility")
     graph.add_conditional_edges(
-        "check_compatibility", route_after_compatibility, {"reject": "reject", "resolve_patches": "resolve_patches"}
+        "check_compatibility",
+        route_after_compatibility,
+        {
+            "reject": "reject",
+            "placeholder_answer": "placeholder_answer",
+            "resolve_patches": "resolve_patches",
+        },
     )
     graph.add_conditional_edges("resolve_patches", route_after_resolve, {"reject": "reject", "seed_prompt": "seed_prompt"})
     graph.add_edge("seed_prompt", "agent_step")
@@ -343,6 +383,7 @@ def build_graph():
     # model decide its next move (another tool call, or Final Answer).
     graph.add_edge("validate_observation", "agent_step")
     graph.add_edge("compose_answer", END)
+    graph.add_edge("placeholder_answer", END)
     graph.add_edge("reject", END)
 
     return graph.compile()
@@ -376,6 +417,7 @@ def run_graph(session_id: str, query: str, context_set: dict) -> OrchestratorSta
         "step_count": 0,
         "malformed_retries": 0,
         "error": None,
+        "placeholder_key": None,
         "final_answer": None,
     }
     final_state = _get_graph().invoke(initial_state)

@@ -15,6 +15,7 @@ import re
 import uuid
 
 from app.config import settings
+from app.demo_placeholders import placeholder_model_used, placeholder_task
 from storage import reports as report_store
 from tools.registry import get_ready_tool_infos
 
@@ -51,12 +52,67 @@ def _extract_bbox_evidence(patch_id: str, raw_observation: str, label: str) -> d
     }
 
 
+def _build_placeholder_response(*, session_id: str, query: str, answer: str, placeholder_key: str) -> dict:
+    """The `QueryResponse` for a demo-mode placeholder (`app/graph.py`'s
+    `placeholder_answer` node). Same shape as a real one -- the UI can't
+    tell the difference structurally, and shouldn't have to -- but with
+    every field telling the truth about what produced it:
+
+    - `evidence` is empty: there is no real detection to draw on the map.
+    - `confidence` is 0.0, not the usual placeholder constant. A stand-in
+      answer has no confidence in any sense, and showing the same 0.75 a
+      genuine answer carries would be the one genuinely misleading thing
+      this feature could do.
+    - `executionTrace.parameters.placeholder` is the machine-readable flag;
+      `modelsUsed` names the model that WOULD have answered, marked as not
+      actually run.
+
+    The written report gets all of this too, so a downloaded PDF/JSON can
+    never be mistaken for a record of a real run.
+    """
+    models_used = placeholder_model_used(placeholder_key)
+    execution_trace = {
+        "task": placeholder_task(placeholder_key),
+        "modelsUsed": [models_used] if models_used else [],
+        "parameters": {"toolCalls": 0, "placeholder": True, "placeholderReason": placeholder_key},
+    }
+
+    report_id = f"rep_{uuid.uuid4().hex[:10]}"
+    report_store.write_report(
+        report_id,
+        session_id=session_id,
+        query=query,
+        answer=answer,
+        evidence=[],
+        confidence=0.0,
+        execution_trace=execution_trace,
+    )
+
+    return {
+        "answer": answer,
+        "groundedSpans": [],
+        "evidence": [],
+        "confidence": 0.0,
+        "executionTrace": execution_trace,
+        "reportUrl": f"/api/reports/{report_id}",
+    }
+
+
 def build_query_response(*, session_id: str, query: str, state: dict) -> dict:
     """`state` is `app/graph.py`'s final `OrchestratorState` after a
     successful run (no `error` key set) -- specifically `final_answer` and
     `tool_calls_made` (`[{"name", "args", "observation"}, ...]`)."""
     answer: str = state["final_answer"]
     calls = state["tool_calls_made"]
+
+    # Demo-mode placeholder: no tool ran and no model was called, so the
+    # trace must say that rather than inheriting the "real answer" shape
+    # below (which would credit EOCaptioner for text it never produced).
+    placeholder_key = state.get("placeholder_key")
+    if placeholder_key:
+        return _build_placeholder_response(
+            session_id=session_id, query=query, answer=answer, placeholder_key=placeholder_key
+        )
 
     evidence = []
     last_instruction = ""
