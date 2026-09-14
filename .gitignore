@@ -45,5 +45,6 @@ BigEarthNet-Luxembourg-S1/*
 BigEarthNet-Luxembourg-S2/*
 specialized_training/*
 dataset.py
+!BiTemporal/src/dataset.py
 
 
