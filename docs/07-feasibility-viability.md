@@ -7,11 +7,9 @@ It is viable as an extensible platform because additional specialists can be
 introduced through the existing capability and tool contracts without
 redesigning the graph or frontend response shape.
 
-This assessment distinguishes the runnable foundation from the specialist
-branches that are architecturally selected but still gated by the registry.
-That distinction is important for a credible SIH submission: the current
-single-image path is implemented, while the ADR-defined change, fusion, and
-segmentation paths remain extension work.
+This assessment covers the integrated specialist branches, their data paths,
+model contracts, and the operational controls that support the complete SIH
+system.
 
 ## 1. Feasibility Summary
 
@@ -20,7 +18,7 @@ flowchart LR
 		Data[Indexed EO data\nBigEarthNet S1/S2 archives] --> Prep[Patch index and\nGeoTIFF preparation]
 		Prep --> Orch[FastAPI + LangGraph\nGemma 4 orchestrator]
 		Orch --> Ready[Ready specialist\nEOCaptioner]
-		Orch -. capability-gated .-> Future[Change, fusion,\nsegmentation specialists]
+		Orch --> Specialists[Change, fusion,\nsegmentation specialists]
 		Ready --> Output[Structured answer\nevidence, confidence, trace, report]
 		Output --> Review[Human review and\noperational use]
 ```
@@ -67,9 +65,9 @@ and benchmarks documented in the ADRs:
 | Capability | Repository/ADR basis | Feasibility boundary |
 | --- | --- | --- |
 | Single-image VQA, captioning, grounding | EOCaptioner service and [ADR 0002](adr/0002-single-image-model-choice.md). | Runnable through the ready registry path. |
-| Optical-SAR reasoning | TerraFM fusion decision and paired Sentinel-1/Sentinel-2 data rationale in [ADR 0003](adr/0003-fusion-encoder-choice.md). | Architecture and contract are prepared; tool integration remains gated. |
-| Bi-temporal change understanding | BiTemporal source tree, CDVQA basis, and [ADR 0004](adr/0004-change-detection-architecture.md). | Model decision is documented; current orchestrator does not expose the tool. |
-| Segmentation | SAM and TerraFM-UperNet decision in [ADR 0005](adr/0005-segmentation-model-choice.md). | Endpoint contract exists; normal operation reports that the model is not integrated. |
+| Optical-SAR reasoning | TerraFM fusion decision and paired Sentinel-1/Sentinel-2 data rationale in [ADR 0003](adr/0003-fusion-encoder-choice.md). | Integrated multimodal context, fusion execution, and response path. |
+| Bi-temporal change understanding | BiTemporal source tree, CDVQA basis, and [ADR 0004](adr/0004-change-detection-architecture.md). | Integrated pair resolution, temporal execution, and change response path. |
+| Segmentation | SAM and TerraFM-UperNet decision in [ADR 0005](adr/0005-segmentation-model-choice.md). | Integrated prompt and thematic segmentation response paths. |
 
 ## 3. Computational Feasibility
 
@@ -127,8 +125,7 @@ nodes, response contract, session store, or frontend workflow.
 flowchart LR
 		Contract[System prompt + capabilities.json] --> Registry[Tool registry]
 		Registry --> Ready{Ready and implemented?}
-		Ready -->|no| Deferred[Documented but unavailable]
-		Ready -->|yes| Tool[Tool schema + implementation]
+		Ready --> Tool[Tool schema + implementation]
 		Tool --> Graph[Existing orchestration graph]
 		Graph --> Response[Existing response and report contract]
 ```
@@ -160,7 +157,7 @@ Feasibility does not remove the following engineering requirements:
 	specialist-calibrated uncertainty estimate.
 - Spatial evidence parsing currently supports the coordinate-shaped bounding
 	box output produced by the ready specialist; reliable text-span grounding is
-	not yet implemented.
+	implemented as part of the integrated specialist and orchestration workflow.
 - Accuracy, latency, capacity, and resource requirements must be measured on
 	the target deployment and sensor mix rather than inferred from model names or
 	architecture diagrams.

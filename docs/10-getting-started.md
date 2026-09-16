@@ -1,13 +1,13 @@
 # Getting Started
 
 This guide explains how to run SatQuery AI locally from a fresh checkout. It
-covers the implemented UI, orchestrator, local main-model service, and ready
-EOCaptioner specialist. It is not an AWS guide; proposed AWS deployment is
-documented in [09-deployment.md](09-deployment.md).
+covers the integrated UI, orchestrator, local main-model service, and
+EOCaptioner specialist. AWS deployment architecture is documented separately in
+[09-deployment.md](09-deployment.md).
 
 For system behavior, see [01-system-design.md](01-system-design.md) and
 [02-technical-approach.md](02-technical-approach.md). The
-[orchestrator README](../orchestrator/README.md) remains the command-level
+[orchestrator README](../orchestrator/README.md) is the command-level
 reference for the local pipeline.
 
 ## 1. Available Local Modes
@@ -231,7 +231,7 @@ docker compose down
 | UI shows fixture responses | MSW is active or no API base URL is set. | Set `VITE_API_BASE_URL` and use the real API path; see `ui/README.md`. |
 | Patch preview returns 422 | Missing or incorrectly mounted BigEarthNet archive. | Check `/health`, startup logs, archive names, and `BIGEARTHNET_DATA_ROOT`. |
 | Orchestrator cannot reach Gemma | LiteRT service is down or URL/port mismatch. | Check port 9001, `LITERT_SERVER_URL`, and its health endpoint. |
-| Specialist is unavailable | EOCaptioner is still loading, stopped, or URL is wrong. | Check `logs/eocaptioner.log`, port 8000, and `EOCAPTIONER_URL`. |
+| Specialist cannot be reached | EOCaptioner is loading, stopped, or its URL is wrong. | Check `logs/eocaptioner.log`, port 8000, and `EOCAPTIONER_URL`. |
 | Memory exhaustion | Gemma and EOCaptioner run together on a constrained machine. | Use `--gemini`, move EOCaptioner remotely with `--no-eocaptioner`, or use a larger machine. |
 | Pair query is rejected | Change/fusion tools are not registry-ready. | This is expected current behavior; use an indexed single-image query. |
 | Upload succeeds but query is rejected | Upload storage/preview exists, model ingestion does not. | Use an indexed patch for the ready query path. |

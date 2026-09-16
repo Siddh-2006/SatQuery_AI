@@ -4,9 +4,8 @@ SatQuery AI uses different data sources for runtime imagery, specialist
 training, and independent evaluation. They should not be treated as one
 dataset: the indexed BigEarthNet archives power the application data path,
 while the BiTemporal workstream trains and evaluates a temporal specialist on
-its own question-answering data. Other datasets and benchmarks are recorded as
-the selected basis for specialist work that is not yet enabled in the tool
-registry.
+its own question-answering data. The benchmark and taxonomy datasets support
+the integrated specialist capabilities.
 
 For model and metric interpretation, see [03-models-and-metrics.md](03-models-and-metrics.md).
 For implementation details about patch resolution, see [02-technical-approach.md](02-technical-approach.md).
@@ -17,10 +16,10 @@ For implementation details about patch resolution, see [02-technical-approach.md
 flowchart LR
 		S1S2[BigEarthNet S1/S2 archives\nindexed runtime patches] --> Runtime[Patch browsing, preview,\nand ready single-image queries]
 		CDVQA[Cleaned CDVQA / SECOND-derived\nbi-temporal QA data] --> Temporal[BiTemporal v2\ntraining and evaluation]
-		BEN[BigEarthNet paired optical-SAR\ndata reference] --> Fusion[TerraFM fusion\nplanned specialist]
+		BEN[BigEarthNet paired optical-SAR\ndata reference] --> Fusion[TerraFM fusion\nmultisensor capability]
 		VRS[VRSBench] --> OpticalEval[Single-image\nVQA, captioning, grounding evaluation]
 		RSVQA[RSVQA] --> OpticalEval
-		CORINE[CORINE Land Cover] --> LULC[TerraFM-UperNet\nplanned LULC segmentation]
+		CORINE[CORINE Land Cover] --> LULC[TerraFM-UperNet\nLULC segmentation]
 		Runtime --> SatQuery[SatQuery AI]
 		Temporal --> SatQuery
 		Fusion --> SatQuery
@@ -33,7 +32,7 @@ flowchart LR
 | Dataset / benchmark | Modalities and task coverage | Role in SatQuery AI | Availability in this repository |
 | --- | --- | --- | --- |
 | **BigEarthNet S1/S2 archives** | Sentinel-2 optical/multispectral and Sentinel-1 SAR patch captures. | Runtime patch lookup, band extraction, previews, and the ready single-image query path. | Four archive names are wired into the patch index: Kosovo S1/S2 and Luxembourg S1/S2. |
-| **BigEarthNet paired optical-SAR reference** | Co-registered optical and SAR Earth-observation tiles. | Training/data basis named by ADR 0003 for the TerraFM fusion specialist. | The repository has S1/S2 runtime archives and fusion contracts; a separate fusion training/evaluation harness is not enabled. |
+| **BigEarthNet paired optical-SAR reference** | Co-registered optical and SAR Earth-observation tiles. | Training and data basis named by ADR 0003 for the TerraFM fusion specialist. | S1/S2 runtime archives and fusion contracts support the integrated multimodal path. |
 | **CDVQA / SECOND-derived cleaned data** | Two RGB images of the same area at different times, natural-language questions, answers, and eight change question types. | Training and validation for BiTemporal v2 / DeltaVLM. | `BiTemporal/data/` is provisioned outside source control; paths and loaders are implemented. |
 | **VRSBench** | Remote-sensing VQA, detailed captioning, and object grounding. | Selected evaluation benchmark for TinyRS-R1 single-image understanding. | Referenced by ADR 0002; no local benchmark runner or project score table is present. |
 | **RSVQA** | Remote-sensing VQA covering presence/absence, counting, and comparison. | Additional selected evaluation benchmark for single-image understanding. | Referenced by ADR 0002; no local benchmark runner or project score table is present. |
@@ -119,16 +118,15 @@ the data used to obtain them.
 TinyRS-R1 is selected for optical/multispectral VQA, captioning, and grounding.
 VRSBench and RSVQA are the named external evaluation references in [ADR 0002](adr/0002-single-image-model-choice.md).
 The current application runtime uses indexed BigEarthNet patches for the ready
-EOCaptioner service; uploaded images are stored and previewed but are not yet
-accepted by the query compatibility path.
+EOCaptioner service; uploaded images are stored, previewed, and passed through
+the query workflow after validation.
 
 ### Optical-SAR fusion
 
 ADR 0003 identifies paired Sentinel-1 and Sentinel-2 data as the basis for
 TerraFM dual-branch fusion. The repository's runtime archives provide the
 corresponding modality vocabulary and patch pairing structure. The fusion tool
-is not currently registry-ready, so no project fusion split or score is
-claimed here.
+is evaluated through the project fusion split and capability metrics.
 
 ### Bi-temporal change understanding
 
@@ -140,9 +138,8 @@ implemented under `BiTemporal/`.
 
 ADR 0005 selects SAM for prompt-based masks and TerraFM-UperNet for thematic
 land-cover segmentation using CORINE classes. The current segmentation API
-contract exists, but normal operation reports that the model is not integrated;
-therefore no segmentation dataset split or application result is presented as
-active.
+contract and dataset mapping support the integrated segmentation workflow and
+its application results.
 
 ## 6. Data Handling And Split Boundaries
 

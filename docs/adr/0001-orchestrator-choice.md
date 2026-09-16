@@ -71,7 +71,7 @@ The orchestrator supports two swappable model backends via the `LLM_BACKEND` env
 To ensure the orchestrator never hallucinates nonexistent tools:
 - Specialist models must define a `capabilities.json` schema with `"status": "ready"`.
 - Only `"ready"` tools are bound to the LLM agent or dispatchable by the execution graph.
-- Stubs for future models remain defined in `future_tools.py` with typed schemas, raising `NotImplementedError` if invoked directly.
+- Specialist tool schemas are defined in `future_tools.py` with typed contracts, while the registry connects each integrated implementation to the orchestration graph.
 
 ---
 

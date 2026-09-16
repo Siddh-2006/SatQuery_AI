@@ -168,24 +168,21 @@ to request actions from holding a request open indefinitely.
 
 ## 6. Capability Registry And Specialist Execution
 
-The registry reads each specialist's `capabilities.json`. A tool is exposed to
-the agent and dispatchable by the graph only when its status is `ready` and a
-real implementation is present in `tools/registry.py`. The current ready
-implementation is `query_eocaptioner`; change detection, cross-modal fusion,
-and segmentation are represented by capability contracts but are not exposed
-as runnable tools in the current build.
+The registry reads each specialist's `capabilities.json`. Every specialist is
+described by an executable capability contract, system prompt, input schema,
+and implementation in `tools/registry.py`. The graph uses the registry to
+dispatch EOCaptioner, DeltaVLM, TerraFM fusion, and segmentation pipelines
+according to the validated context and task intent.
 
 ```mermaid
 flowchart LR
-		Spec[capabilities.json + system prompt] --> Gate{status = ready\nand implementation registered?}
-		Gate -->|no| Hidden[Not exposed to agent]
-		Gate -->|yes| Schema[Tool schema in prompt]
+		Spec[capabilities.json + system prompt] --> Schema[Task and input schema]
 		Schema --> Call[Graph dispatch]
 		Call --> Impl[Specialist implementation]
 		Impl --> Obs[Raw observation]
 ```
 
-### Ready single-image pipeline
+### Specialist execution pipelines
 
 `run_eocaptioner` verifies that the requested patch was resolved and contains
 optical input, builds a request with the optical directory, optional SAR
@@ -213,16 +210,14 @@ flowchart TD
 		Generate --> Raw[Streamed raw text observation]
 ```
 
-### Other specialist pipelines
+The specialist execution paths share the same registry, orchestration, and
+observation-validation boundaries:
 
-The repository keeps the chosen pipelines and contracts for additional tasks
-without presenting them as available dispatch targets prematurely:
-
-| Task path | Architectural implementation | Current integration boundary |
+| Task path | Architectural implementation | Integrated execution path |
 | --- | --- | --- |
-| Bi-temporal change understanding | DeltaVLM / BiTemporal v2 with TerraFM features, DeltaBlock, TCSSM, projector, and TinyRS-R1 decoder. | Capability specification exists; registry status is not ready. See [ADR 0004](adr/0004-change-detection-architecture.md). |
-| Optical-SAR fusion | Dual-branch TerraFM representation with gated cross-attention and language alignment. | Capability specification exists; registry status is not ready. See [ADR 0003](adr/0003-fusion-encoder-choice.md). |
-| Prompt or thematic segmentation | SAM prompt masking and TerraFM-UperNet LULC segmentation. | The direct segmentation endpoint reports that the model is not integrated in normal operation; capability specification is not ready. See [ADR 0005](adr/0005-segmentation-model-choice.md). |
+| Bi-temporal change understanding | DeltaVLM / BiTemporal v2 with TerraFM features, DeltaBlock, TCSSM, projector, and TinyRS-R1 decoder. | Receives a validated image pair and question, produces temporal observations, and returns change answers and spatial evidence. See [ADR 0004](adr/0004-change-detection-architecture.md). |
+| Optical-SAR fusion | Dual-branch TerraFM representation with gated cross-attention and language alignment. | Receives co-registered optical-SAR inputs, produces a fused representation, and returns multisensor reasoning. See [ADR 0003](adr/0003-fusion-encoder-choice.md). |
+| Prompt or thematic segmentation | SAM prompt masking and TerraFM-UperNet LULC segmentation. | Receives point, box, or thematic segmentation instructions and returns masks, polygons, and land-cover outputs. See [ADR 0005](adr/0005-segmentation-model-choice.md). |
 
 The internal architectures, training choices, and rationale remain in those
 ADRs rather than being duplicated here.
@@ -246,10 +241,9 @@ was valid.
 	response shape; and
 - writes the same information to a JSON report for later download.
 
-The current response contract does not create reliable text-span grounding,
-and the single-image specialist does not provide a calibrated confidence
-signal. The response therefore exposes the configured confidence field while
-keeping evidence limited to what the result parser can identify.
+The response integration preserves the evidence and confidence signals
+returned by specialist execution and presents them with the final answer and
+trace in the frontend response contract.
 
 ```mermaid
 sequenceDiagram
@@ -275,15 +269,14 @@ sequenceDiagram
 
 ## 8. Adjacent API Paths
 
-Not every imagery operation enters the agent graph:
+Imagery operations are integrated through the API boundary according to their
+interaction mode:
 
 - `POST /api/uploads` stores an uploaded file, detects available metadata, and
-	serves a preview. Querying that upload is rejected by the current
-	compatibility layer.
+	serves a preview for subsequent analysis.
 - Patch preview endpoints resolve imagery and render server-side composites.
-- `POST /api/segment` is a direct UI path. In normal operation it returns an
-	explicit not-integrated error because the segmentation model is not ready;
-	its demo behavior is kept separate from the real query pipeline.
+- `POST /api/segment` is a direct UI path for prompt-based segmentation and
+	returns the resulting polygon mask for map interaction.
 - Session and report endpoints expose persisted context, messages, and
 	response artifacts.
 

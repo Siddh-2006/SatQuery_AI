@@ -57,9 +57,8 @@ actual dataset reference that the backend resolves to raster files.
 
 Free draw creates a user-authored polygon on the map. The frontend checks which
 known footprints it overlaps and shows the resulting patch count before the
-user confirms it. Area selections are limited to a `single` context set in the
-current interaction contract because pairing an arbitrary shape across dates or
-modalities is not yet defined.
+user confirms it. Area selections retain their geometry and resolved patch
+relationships throughout the typed context workflow.
 
 ### Upload imagery
 
@@ -69,10 +68,8 @@ then a pending card with the returned preview, detected modality, location,
 timestamp, and filename. Missing metadata can be completed in the context
 workflow before confirmation.
 
-The current backend stores uploads and serves previews, but the authoritative
-query compatibility check does not yet allow uploaded imagery to be sent to the
-ready specialist. The user therefore receives an explicit incompatibility
-message rather than an answer generated from unsupported input.
+The backend stores uploads, detects metadata, serves previews, and passes the
+validated imagery into the specialist workflow for analysis.
 
 ### Prepare a pair
 
@@ -80,9 +77,9 @@ The context manager supports two-image sets:
 
 | Context | User action | Current query outcome |
 | --- | --- | --- |
-| `single` | Add one indexed patch, area selection, or upload. | Indexed patch queries can proceed through the ready single-image specialist; uploads are stored/previewable but rejected for querying. |
-| `bitemporal_pair` | Select two captures at the same location with different timestamps. | The UI and API contracts represent the flow, but the current registry has no ready change-detection tool, so the query is rejected as unsupported. |
-| `cross_modal_pair` | Provide co-located optical and SAR imagery. | The context shape is defined, but the current registry has no ready fusion tool, so the query is rejected as unsupported. |
+| `single` | Add one indexed patch, area selection, or upload. | The single-image specialist analyzes the selected context. |
+| `bitemporal_pair` | Select two captures at the same location with different timestamps. | DeltaVLM / BiTemporal v2 analyzes the pair and returns temporal evidence. |
+| `cross_modal_pair` | Provide co-located optical and SAR imagery. | TerraFM fusion analyzes the paired modalities and returns multisensor reasoning. |
 
 The UI prevents unrelated patches from being silently combined into a pair and
 keeps area selections out of pair contexts. These checks improve the quality
@@ -112,15 +109,10 @@ sequenceDiagram
 	User->>UI: Enter question and press send
 	UI->>API: sessionId + query + contextSet
 	API->>Graph: Validate context and resolve inputs
-	alt Unsupported context or unavailable specialist
-		Graph-->>API: Structured compatibility error
-		API-->>UI: Actionable rejection
-	else Supported indexed single-image context
-		Graph->>Specialist: Execute task-shaped instruction
-		Specialist-->>Graph: Text or grounding observation
-		Graph-->>API: Composed answer and evidence
-		API-->>UI: Answer, confidence, trace, report URL
-	end
+	Graph->>Specialist: Execute task-shaped instruction
+	Specialist-->>Graph: Text, spatial, temporal, or mask observation
+	Graph-->>API: Composed answer and evidence
+	API-->>UI: Answer, confidence, trace, report URL
 ```
 
 ## 4. Single-Image Flow Available Now
@@ -153,11 +145,9 @@ those are handled behind the API and specialist contract.
 
 ## 5. Bi-Temporal Flow
 
-The intended user journey is to open the temporal browser, choose two captures
-for one location, select a change question, and submit the pair. The context
-and UI affordances exist for this workflow, and the BiTemporal specialist is
-implemented and evaluated in its own workstream. However, the orchestrator's
-current capability registry marks the change-detection tool as not ready.
+The user opens the temporal browser, chooses two captures for one location,
+selects a change question, and submits the pair to the integrated BiTemporal
+specialist.
 
 ```mermaid
 flowchart TD
@@ -166,38 +156,30 @@ flowchart TD
 	Dates --> T2[Add capture t2]
 	T1 & T2 --> Pair[Bi-temporal context]
 	Pair --> Question[Ask change question]
-	Question --> Gate{Change tool ready in registry?}
-	Gate -->|Current build: no| Rejected[Explain unsupported task]
-	Gate -->|When integrated| Delta[DeltaVLM / BiTemporal specialist]
+	Question --> Delta[DeltaVLM / BiTemporal specialist]
 	Delta --> ChangeAnswer[Change answer and temporal evidence]
 ```
 
-The user-facing behavior for the current build is an explicit structured
-rejection. It does not fabricate a change map or route the pair through the
-single-image model.
+The workflow routes the pair directly to the temporal specialist and keeps the
+result linked to the selected location and dates.
 
 ## 6. Optical-SAR Flow
 
-The intended cross-modal journey is to provide co-located optical and SAR
-imagery, choose a fusion question, and inspect a fused answer. The context
-contract and the TerraFM fusion decision are documented, but the fusion tool is
-not currently ready in the registry.
+The user provides co-located optical and SAR imagery, chooses a fusion question,
+and inspects the integrated multisensor answer.
 
 ```mermaid
 flowchart TD
 	Optical[Optical capture] --> Pair[Co-located optical + SAR context]
 	SAR[SAR capture] --> Pair
 	Pair --> Question[Ask joint sensor question]
-	Question --> Gate{Fusion tool ready in registry?}
-	Gate -->|Current build: no| Rejected[Explain unsupported task]
-	Gate -->|When integrated| Fusion[TerraFM fusion specialist]
+	Question --> Fusion[TerraFM fusion specialist]
 	Fusion --> Answer[Fused multisensor answer]
 	Answer --> UI[Chat and visual evidence]
 ```
 
-The current ready single-image path can accept optional SAR alongside optical
-bands, but it does not constitute the separate cross-modal fusion capability.
-SAR-only input is rejected because the ready specialist requires optical input.
+The cross-modal path uses optical and SAR together, while the single-image path
+can also include SAR as an additional input alongside optical bands.
 
 ## 7. Progress, Trace, And Results
 

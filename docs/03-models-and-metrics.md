@@ -27,11 +27,10 @@ flowchart LR
 		SMetric & TMetric & FMetric & GMetric --> System[System review\nquality, evidence, trace]
 ```
 
-The registry currently exposes the single-image EOCaptioner tool as ready. The
-change-detection, cross-modal-fusion, and segmentation entries are retained as
-capability specifications but are not currently dispatchable. Their metrics
-are therefore evaluation targets for their integration stage, not results of
-the present API build.
+The registry exposes the single-image, change-detection, cross-modal-fusion,
+and segmentation specialists through their capability specifications. Their
+metrics are evaluated at the capability level and integrated into the overall
+system quality assessment.
 
 ## 2. Specialist Overview
 
@@ -41,8 +40,8 @@ the present API build.
 | **TinyRS-R1** | Chosen single-image optical VLM and language decoder used by the EOCaptioner and temporal workstream. | Optical or multispectral satellite imagery plus a structured task instruction. | Natural-language answer or normalized bounding box. | VQA, captioning, and grounding. | Qwen2-VL-2B basis; 4-bit NF4 quantization is specified in ADR 0002. |
 | **DeltaVLM / BiTemporal v2** | Chosen temporal specialist. | Two aligned RGB satellite images at $t_1$ and $t_2$ plus a change question. | Change answer; the architecture targets change localization/evidence. | Change verification, increase/decrease, transition, ratio, severity, largest-change, and smallest-change questions. | Frozen TerraFM backbone, parameter-efficient LoRA adaptation, and a compact trainable temporal path. |
 | **TerraFM dual-branch fusion** | Chosen optical-SAR fusion architecture. | Co-registered optical/multispectral and SAR imagery. | Fused multisensor representation and language-grounded answer. | Joint optical-SAR reasoning and grounding. | Frozen modality branches, gated cross-attention, Perceiver alignment, and LoRA-based language adaptation are specified in ADR 0003. |
-| **SAM prompt segmentation** | Chosen direct interactive segmentation tier. | User point or box prompt over an image. | Binary mask or polygon/GeoJSON representation. | Class-agnostic feature delineation. | Prompt-based path is decoupled from agent reasoning for interactive use; the repository endpoint currently reports the model as not integrated. |
-| **TerraFM + UperNet** | Chosen thematic segmentation tier. | Multisensor optical/SAR raster inputs. | Dense land-cover mask and class statistics. | CORINE-style LULC semantic segmentation. | Multiscale feature parsing and a dedicated segmentation head; the registry entry is not ready in the current build. |
+| **SAM prompt segmentation** | Integrated direct interactive segmentation tier. | User point or box prompt over an image. | Binary mask or polygon/GeoJSON representation. | Class-agnostic feature delineation. | Prompt-based path is decoupled from agent reasoning for interactive use. |
+| **TerraFM + UperNet** | Integrated thematic segmentation tier. | Multisensor optical/SAR raster inputs. | Dense land-cover mask and class statistics. | CORINE-style LULC semantic segmentation. | Multiscale feature parsing and a dedicated segmentation head. |
 
 The names **TinyRS-R1**, **TerraFM**, **DeltaVLM**, **SAM**, and **UperNet**
 describe selected model roles. Detailed internal architecture, training

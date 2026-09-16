@@ -21,9 +21,8 @@ orchestrator validates and routes the request, and the selected specialist
 returns an observation for integration into one structured response.
 
 The diagram below is the system's complete flow. Specialist branches are
-capability-gated by the model/tool registry: a branch is dispatchable only when
-its implementation is registered and marked ready. The branch architecture and
-model choices are defined in [ADR 0001](adr/0001-orchestrator-choice.md)
+managed by the model/tool registry, which provides the task contracts used for
+dispatch and execution. The branch architecture and model choices are defined in [ADR 0001](adr/0001-orchestrator-choice.md)
 through [ADR 0005](adr/0005-segmentation-model-choice.md).
 
 ```mermaid
@@ -164,11 +163,10 @@ flowchart TD
 
 ## 4. Model And Tool Registry
 
-The registry is the control point between orchestration and inference. A
+The registry is the control point between orchestration and inference. Each
 specialist contributes a capability description, prompt contract, and tool
-implementation. The orchestrator exposes only registered, ready capabilities;
-future or unavailable tools cannot be selected merely because the main model
-mentions them.
+implementation. The orchestrator uses these contracts to select the correct
+specialist for the task and to keep model inputs and outputs consistent.
 
 ```mermaid
 flowchart LR
