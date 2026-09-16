@@ -1,12 +1,44 @@
-# SatQuery AI Documentation
+<div align="center">
 
-**Agentic multimodal remote-sensing intelligence for querying, understanding,
-and grounding satellite imagery.**
+# SatQuery AI
 
-SatQuery AI provides a complete map-and-chat workflow for selecting imagery,
-asking natural-language questions, routing each task to the appropriate
-specialist, validating observations, and returning integrated answers with
-confidence, visual evidence, execution traces, and reports.
+### Agentic multimodal intelligence for satellite imagery
+
+<p>
+  A map-and-chat workflow for querying, understanding, grounding, and comparing
+  remote-sensing imagery through specialist models and structured evidence.
+</p>
+
+[![Architecture](https://img.shields.io/badge/architecture-agentic%20multimodal-1769aa?style=for-the-badge)](01-system-design.md)
+[![Orchestration](https://img.shields.io/badge/orchestration-Gemma%204%20%7C%20LangGraph-0f766e?style=for-the-badge)](02-technical-approach.md)
+[![Frontend](https://img.shields.io/badge/frontend-React%20%7C%20Vite-5b21b6?style=for-the-badge)](04-user-flow.md)
+[![Deployment](https://img.shields.io/badge/deployment-AWS%20architecture-d97706?style=for-the-badge)](09-deployment.md)
+
+</div>
+
+> **Project brief**
+> SatQuery AI connects imagery selection, natural-language analysis, specialist
+> execution, observation validation, spatial evidence, and auditable reporting
+> in one integrated remote-sensing workflow.
+
+## At A Glance
+
+| Dimension | SatQuery AI |
+| --- | --- |
+| Analysis surface | Map, imagery context, chat, evidence overlays, and reports |
+| Reasoning layer | Gemma 4 E2B with LangGraph orchestration |
+| Specialist coverage | VQA, captioning, grounding, change understanding, optical-SAR fusion, and segmentation |
+| Primary data | BigEarthNet Sentinel-1/Sentinel-2 archives and CDVQA temporal QA data |
+| Evidence | Bounding boxes, masks, change regions, confidence, and execution traces |
+| Deployment shape | Local services and an AWS-oriented service architecture |
+
+<div align="center">
+
+**Explore the architecture, then jump directly to the workflow or setup guide.**
+
+[System Design](01-system-design.md) · [User Flow](04-user-flow.md) · [Getting Started](10-getting-started.md)
+
+</div>
 
 ## System Overview
 
@@ -30,7 +62,7 @@ flowchart LR
     Result --> UI
 ```
 
-## Integrated Capabilities
+## Capability Matrix
 
 | Capability | Integrated function | Main components |
 | --- | --- | --- |
@@ -66,7 +98,7 @@ modality, and band-selection metadata.
 - Persisted downloadable report.
 - Structured validation responses for invalid or incompatible inputs.
 
-## Key Components
+## Component Map
 
 | Component | Function | Reference |
 | --- | --- | --- |
@@ -106,7 +138,7 @@ preprocessing, and benchmarks are documented in
 | Persistence | SQLite sessions, filesystem cache, uploads, and JSON reports. |
 | Packaging | Docker, Docker Compose, native local scripts, and HPC/Slurm support. |
 
-## Project Status
+## Integrated System
 
 The complete SatQuery AI architecture is implemented as an integrated
 workflow across the frontend, API, data layer, agentic orchestrator, model and
@@ -142,7 +174,7 @@ and troubleshooting are in [10-getting-started.md](10-getting-started.md).
 
 ## AWS Deployment Architecture
 
-The deployment architecture maps the integrated service boundaries to AWS using
+The deployment plan maps the integrated service boundaries to AWS using
 CloudFront and S3 for the frontend, ECS for the orchestrator, private CPU/GPU
 model services, S3 data and model storage, managed relational persistence, and
 private networking. The complete deployment design is in
